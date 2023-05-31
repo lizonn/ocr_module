@@ -4,11 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model
 
+
 class TextRecognizer:
     def __init__(self, model, image_processor):
         self.model = model
         self.image_processor = image_processor
         self.ukr_alphabet = "АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя"
+        # self.ukr_alphabet = 'АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя0987654321ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!"#$%&’()*+,-./:;<=>?@[]^_`{|}~'
+        # self.ukr_alphabet = 'АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя0987654321!"#%’()*+,-./:;'
         self.labels_to_letters = {i: self.ukr_alphabet[i] for i in range(len(self.ukr_alphabet))}
 
     def letter_to_class(self, letter):
@@ -107,22 +110,32 @@ class TextRecognizer:
         return predicted_letter
 
     def predict_letters(self, word_image):
-        predict_word = ''
-
+        letters_images_resized = []
         letters_positions = self.image_processor.get_letters_positions(word_image)
 
         for pos in letters_positions:
             x, y, w, h = pos
             letter_img = word_image[y:y + h, x:x + w]
-            # plt.imshow(letter_img)
-            # plt.show()
 
-            prediction = self.predict_letter(letter_img)
-            # print(f'Word {i+1}, Letter {j+1}: {prediction}')
-            predict_word += prediction
-        # print(predict_word)
+            # TODO обробити попередньо зображення через функцію crop_img
+            # TODO мабуть винести цю частину с функції
+            # TODO чи потрібна тоді функція predict_letter?
 
-        return predict_word
+            resized_img = cv2.resize(letter_img, (28, 28))  # Приведение к одному размеру
+            gray_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2GRAY)
+            letters_images_resized.append(gray_img[..., np.newaxis])  # Добавляем измерение для каналов
+
+        if letters_images_resized:
+            letters_images_array = np.stack(letters_images_resized, axis=0)
+        else:
+            return ''
+
+        predictions = self.model.predict(letters_images_array)
+
+        predicted_classes = [np.argmax(p) for p in predictions]
+        predicted_letters = [self.class_to_letter(c) for c in predicted_classes]
+
+        return predicted_letters
 
     def recognize_text(self, image):
 
@@ -163,11 +176,12 @@ class TextRecognizer:
 if __name__ == '__main__':
 
 
-    model = load_model('models/character_recognition_model2.h5')
+    # model = load_model('models/character_recognition_model2.h5')
+    model = load_model('models/ua_model.h5')
     processor = ImageProcessor()
     recognizer = TextRecognizer(model, processor)
 
-    image = cv2.imread('images/noise.jpg')
+    image = cv2.imread('images/noise.png')
 
     res = recognizer.recognize_text(image)
 

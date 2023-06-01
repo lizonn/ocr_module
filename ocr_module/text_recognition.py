@@ -1,4 +1,4 @@
-from preprocessing import ImageProcessor
+from ocr_module.preprocessing import ImageProcessor
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt

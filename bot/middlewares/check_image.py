@@ -21,8 +21,7 @@ def image_quality_check(function):
             if message.content_type == 'document' and not message.document.mime_type.startswith('image/'):
                 await message.answer('Будь ласка, завантажте зображення')
             else:
-                print(message.photo[-1].file_id)
-                # ПОКА ЧТО НЕ РАБОТАЕТ С ФАЙЛАМИ
+                # ПОКИ ЩО НЕ ПРАЦЮЄ З ФАЙЛАМИ
 
                 return await function(message, state, image_path=message.photo[-1].file_id, *args, **kwargs)
 

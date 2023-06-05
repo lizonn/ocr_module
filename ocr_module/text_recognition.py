@@ -1,7 +1,6 @@
 from ocr_module.preprocessing import ImageProcessor
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model
 
 
@@ -9,9 +8,7 @@ class TextRecognizer:
     def __init__(self, model, image_processor):
         self.model = model
         self.image_processor = image_processor
-        self.ukr_alphabet = "АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя"
-        # self.ukr_alphabet = 'АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя0987654321ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!"#$%&’()*+,-./:;<=>?@[]^_`{|}~'
-        # self.ukr_alphabet = 'АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя0987654321!"#%’()*+,-./:;'
+        self.ukr_alphabet = 'АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя0987654321!"#%’()*+,-./:;'
         self.labels_to_letters = {i: self.ukr_alphabet[i] for i in range(len(self.ukr_alphabet))}
 
     def letter_to_class(self, letter):
@@ -46,11 +43,6 @@ class TextRecognizer:
             new_width = 28
             new_height = int(height * new_width / width)
 
-        # print(cropped_img.shape)
-        # print(new_width)
-        # print(new_height)
-        # print('----------')
-
         resized_img = cv2.resize(cropped_img, (new_width, new_height))
 
         if resized_img.size == 0:
@@ -69,9 +61,8 @@ class TextRecognizer:
         left_border_width = padding_width // 2
         right_border_width = padding_width - left_border_width
 
-        padded_img = cv2.copyMakeBorder(resized_img, top_border_height, bottom_border_height, left_border_width,
-                                        right_border_width, cv2.BORDER_CONSTANT, value=255)
-
+        padded_img = cv2.copyMakeBorder(resized_img, top_border_height, bottom_border_height,
+                                        left_border_width, right_border_width, cv2.BORDER_CONSTANT, value=255)
         padded_img = cv2.bitwise_not(padded_img)
 
         return padded_img
@@ -92,15 +83,7 @@ class TextRecognizer:
         # plt.show()
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # image = self.crop_img(image)
-        # image = 255 - image
         image = self.preprocess_image(image)
-
-        # TODO обробити попередньо зображення через функцію crop_img
-        # TODO мабуть винести цю частину с функції
-
-        # reshaped_img = image.reshape(28, 28)
-        # image = self.preprocess_image(image)
 
         # ----------------
         prediction = self.model.predict(np.array([image]))
@@ -117,13 +100,18 @@ class TextRecognizer:
             x, y, w, h = pos
             letter_img = word_image[y:y + h, x:x + w]
 
-            # TODO обробити попередньо зображення через функцію crop_img
-            # TODO мабуть винести цю частину с функції
-            # TODO чи потрібна тоді функція predict_letter?
+            letter_img = cv2.cvtColor(letter_img, cv2.COLOR_BGR2GRAY)
 
-            resized_img = cv2.resize(letter_img, (28, 28))  # Приведение к одному размеру
-            gray_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2GRAY)
-            letters_images_resized.append(gray_img[..., np.newaxis])  # Добавляем измерение для каналов
+            letter_img = self.crop_img(letter_img)
+            letter_img = 255 - letter_img
+            letter_img = self.preprocess_image(letter_img)
+
+            if len(letter_img.shape) > 2 and letter_img.shape[2] == 3:
+                gray_img = cv2.cvtColor(letter_img, cv2.COLOR_BGR2GRAY)
+            else:
+                gray_img = letter_img
+
+            letters_images_resized.append(gray_img[..., np.newaxis])
 
         if letters_images_resized:
             letters_images_array = np.stack(letters_images_resized, axis=0)
@@ -140,7 +128,6 @@ class TextRecognizer:
     def recognize_text(self, image):
 
         self.image_processor.gray = image
-        # self.image_processor.gray = self.image_processor.to_gray(self.image_processor.img)
         self.image_processor.gray = self.image_processor.contrast(self.image_processor.gray)
         self.image_processor.gray = self.image_processor.as_white_background(self.image_processor.gray)
         lines = self.image_processor.get_lines_positions(self.image_processor.gray)
@@ -149,35 +136,23 @@ class TextRecognizer:
         for line in lines:
             start, end = line
             line_image = self.image_processor.gray[start:end]
-            # plt.imshow(line_image)
-            # plt.show()
 
             words = self.image_processor.get_words_positions(line_image)
-            # print(words)
-            # plt.imshow(self.image_processor.gray)
-            # plt.show()
 
-            # plt.imshow(line_image)
-            # plt.show()
-            # i = 0
             for word in words:
-                # i+=1
-
                 word_image = self.image_processor.crop_word(line_image, word)
-                # cv2.imwrite(f'/content/word_{i}.jpg', word_image)
 
                 letter_predictions = self.predict_letters(word_image)
                 word_text = "".join(letter_predictions)
-                text += word_text + " "  # Add a space after each word
-            text += "\n"  # Add a newline after each line
-        return text
+                text += word_text + " "
+            text += "\n"
+        return text.lower()
 
 
 if __name__ == '__main__':
-
-
     # model = load_model('models/character_recognition_model2.h5')
-    model = load_model('models/ua_model.h5')
+    # model = load_model('models/ua_model.h5')
+    model = load_model('models/with_noise_less_aug_dastaset_ua_model.h5')
     processor = ImageProcessor()
     recognizer = TextRecognizer(model, processor)
 

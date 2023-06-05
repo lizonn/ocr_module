@@ -71,11 +71,12 @@ async def process_image(message: types.Message, state: FSMContext, image_path=No
     image = Image.open(io.BytesIO(file_body))
 
     if chosen_model == texts.MODEL1:
-        model_name = 'ocr_module/models/ua_model.h5'
+        model_name = 'ocr_module/models/best_model.h5'
     else:
         model_name = 'ocr_module/models/ua_model.h5'
 
     res = get_text_from_image(model_name, image)
+
     await message.answer(f'Ваш розпізнаний текст:\n{res}')
 
     await state.finish()
